@@ -20,9 +20,8 @@ async def alexa_skill(request: Request):
     if req_type == "LaunchRequest":
         texto_respuesta = "¡Hola! Soy Astrid. ¿En qué te puedo ayudar hoy?"
     
-    # Cuando le haces una pregunta directamente
+    # Cuando le hablas o haces una pregunta
     elif req_type == "IntentRequest":
-        # Intentamos obtener la frase del usuario o le enviamos un prompt general
         user_input = "Hola Astrid, preséntate brevemente"
         slots = data.get("request", {}).get("intent", {}).get("slots", {})
         
@@ -43,7 +42,7 @@ async def alexa_skill(request: Request):
     else:
         texto_respuesta = "Hasta luego."
 
-    # Formato de respuesta que exige Alexa
+    # Formato obligatorio para Alexa
     return {
         "version": "1.0",
         "response": {
