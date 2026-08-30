@@ -1,47 +1,56 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+import os
+from fastapi import FastAPI, Request
 from google import genai
-from google.genai import types
 
-# 1. Configuración de Gemini API
-API_KEY = "AQ.Ab8RN6IBz8ofjxtF5T56_zFuG20buEnQlKXXaQU33ZWkBh7PoA"
-client = genai.Client(api_key=API_KEY)
+app = FastAPI()
 
-configuracion = types.GenerateContentConfig(
-    system_instruction=(
-        "Tu nombre es Astrid. Eres un sistema de inteligencia artificial avanzado, "
-        "diseñado para ser un asistente personal altamente eficiente, directo, sabio "
-        "y servicial. Mantén tus respuestas breves y concisas (máximo 2 a 3 oraciones), "
-        "ideales para ser leídas por un asistente de voz."
-    ),
-    temperature=0.7,
-)
-
-# Inicializar la app FastAPI
-app = FastAPI(title="Astrid AI Server")
-
-# Guardar la sesión de chat activa
-chat = client.chats.create(
-    model="gemini-3.5-flash",
-    config=configuracion
-)
-
-# Modelo para validar los datos que recibe la API
-class MensajeUsuario(BaseModel):
-    texto: str
+# Inicializar cliente de Gemini
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 @app.get("/")
-def estado_servidor():
+def home():
     return {"status": "Astrid AI en línea", "version": "1.0"}
 
 @app.post("/chat")
-def interactuar_astrid(mensaje: MensajeUsuario):
-    try:
-        if not mensaje.texto.strip():
-            raise HTTPException(status_code=400, detail="El texto no puede estar vacío.")
+async def alexa_skill(request: Request):
+    data = await request.json()
+    req_type = data.get("request", {}).get("type", "")
 
-        respuesta = chat.send_message(mensaje.texto)
-        return {"respuesta": respuesta.text}
+    # Cuando abres la skill diciendo "abre oye astrid"
+    if req_type == "LaunchRequest":
+        texto_respuesta = "¡Hola! Soy Astrid. ¿En qué te puedo ayudar hoy?"
+    
+    # Cuando le haces una pregunta directamente
+    elif req_type == "IntentRequest":
+        # Intentamos obtener la frase del usuario o le enviamos un prompt general
+        user_input = "Hola Astrid, preséntate brevemente"
+        slots = data.get("request", {}).get("intent", {}).get("slots", {})
+        
+        for slot in slots.values():
+            if "value" in slot:
+                user_input = slot["value"]
+                break
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=f"Responde de forma concisa y natural para ser leída por voz: {user_input}"
+            )
+            texto_respuesta = response.text
+        except Exception as e:
+            texto_respuesta = "Lo siento, tuve un problema al conectarme con mi cerebro de Gemini."
+    
+    else:
+        texto_respuesta = "Hasta luego."
+
+    # Formato de respuesta que exige Alexa
+    return {
+        "version": "1.0",
+        "response": {
+            "outputSpeech": {
+                "type": "PlainText",
+                "text": texto_respuesta
+            },
+            "shouldEndSession": False
+        }
+    }
