@@ -1,11 +1,15 @@
 import os
 from fastapi import FastAPI, Request
-from google import genai
+import google.generativeai as genai
 
 app = FastAPI()
 
-# Inicializar cliente de Gemini
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+# Configurar Gemini
+api_key = os.environ.get("GEMINI_API_KEY")
+if api_key:
+    genai.configure(api_key=api_key)
+
+model = genai.GenerativeModel("gemini-1.5-flash")
 
 @app.get("/")
 def home():
@@ -16,33 +20,33 @@ async def alexa_skill(request: Request):
     data = await request.json()
     req_type = data.get("request", {}).get("type", "")
 
-    # Cuando abres la skill diciendo "abre oye astrid"
     if req_type == "LaunchRequest":
-        texto_respuesta = "¡Hola! Soy Astrid. ¿En qué te puedo ayudar hoy?"
-    
-    # Cuando le hablas o haces una pregunta
+        texto_respuesta = "¡Hola Joshua! Soy Astrid. Dime, ¿en qué te puedo ayudar?"
+
     elif req_type == "IntentRequest":
-        user_input = "Hola Astrid, preséntate brevemente"
+        # Extraer la frase del slot "query" si existe
         slots = data.get("request", {}).get("intent", {}).get("slots", {})
+        user_input = ""
         
         for slot in slots.values():
-            if "value" in slot:
+            if "value" in slot and slot["value"]:
                 user_input = slot["value"]
                 break
 
+        if not user_input:
+            user_input = "Hola, preséntate brevemente."
+
         try:
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=f"Responde de forma concisa y natural para ser leída por voz: {user_input}"
+            response = model.generate_content(
+                f"Responde de forma concisa y natural para ser leída por voz: {user_input}"
             )
             texto_respuesta = response.text
         except Exception as e:
-            texto_respuesta = "Lo siento, tuve un problema al conectarme con mi cerebro de Gemini."
-    
+            texto_respuesta = f"Error al consultar Gemini: {str(e)}"
+
     else:
         texto_respuesta = "Hasta luego."
 
-    # Formato obligatorio para Alexa
     return {
         "version": "1.0",
         "response": {
