@@ -5,19 +5,18 @@ from google.genai import types
 
 app = FastAPI()
 
-# Inicializar cliente con la clave almacenada en Render
 api_key = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
-# Personalidad de Astrid usando tu configuración de PyCharm
+# Configuración optimizada para velocidad y brevedad estricta
 configuracion = types.GenerateContentConfig(
     system_instruction=(
-        "Tu nombre es Astrid. Eres un sistema de inteligencia artificial avanzado, "
-        "diseñado para ser un asistente personal altamente eficiente, directo, sabio "
-        "y servicial. Mantén tus respuestas claras, concisas y con un tono natural y elegante "
-        "apropiado para ser leído por voz."
+        "Tu nombre es Astrid. Eres una asistente de IA concisa, directa y servicial. "
+        "REGLA ESTRICTA: Responde SIEMPRE en un máximo de 2 a 3 oraciones cortas. "
+        "Ve directo al grano sin introducciones ni despedidas para que la respuesta sea instantánea."
     ),
     temperature=0.7,
+    max_output_tokens=150,  # Limite físico para evitar demoras
 )
 
 @app.get("/")
@@ -29,9 +28,8 @@ async def alexa_skill(request: Request):
     data = await request.json()
     req_type = data.get("request", {}).get("type", "")
 
-    # Saludo neutro para cualquier usuario
     if req_type == "LaunchRequest":
-        texto_respuesta = "¡Hola! Soy Astrid, tu asistente de inteligencia artificial. ¿En qué te puedo ayudar hoy?"
+        texto_respuesta = "¡Hola! Soy Astrid. ¿En qué te puedo ayudar hoy?"
 
     elif req_type == "IntentRequest":
         slots = data.get("request", {}).get("intent", {}).get("slots", {})
@@ -43,18 +41,17 @@ async def alexa_skill(request: Request):
                 break
 
         if not user_input:
-            user_input = "Hola, preséntate brevemente."
+            user_input = "Preséntate en una sola oración."
 
         try:
-            # Modelo gemini-3.6-flash probado en tu entorno
             response = client.models.generate_content(
                 model="gemini-3.6-flash",
                 contents=user_input,
                 config=configuracion
             )
             texto_respuesta = response.text
-        except Exception as e:
-            texto_respuesta = f"Error al consultar Gemini: {str(e)}"
+        except Exception:
+            texto_respuesta = "Lo siento, la consulta tomó demasiado tiempo. Inténtalo de nuevo."
 
     else:
         texto_respuesta = "Hasta luego."
