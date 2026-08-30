@@ -1,15 +1,24 @@
 import os
 from fastapi import FastAPI, Request
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 app = FastAPI()
 
-# Configurar Gemini
+# Inicializar cliente con la clave almacenada en Render
 api_key = os.environ.get("GEMINI_API_KEY")
-if api_key:
-    genai.configure(api_key=api_key)
+client = genai.Client(api_key=api_key)
 
-model = genai.GenerativeModel("gemini-1.5-flash")
+# Personalidad de Astrid usando tu configuración de PyCharm
+configuracion = types.GenerateContentConfig(
+    system_instruction=(
+        "Tu nombre es Astrid. Eres un sistema de inteligencia artificial avanzado, "
+        "diseñado para ser un asistente personal altamente eficiente, directo, sabio "
+        "y servicial. Mantén tus respuestas claras, concisas y con un tono natural y elegante "
+        "apropiado para ser leído por voz."
+    ),
+    temperature=0.7,
+)
 
 @app.get("/")
 def home():
@@ -20,11 +29,11 @@ async def alexa_skill(request: Request):
     data = await request.json()
     req_type = data.get("request", {}).get("type", "")
 
+    # Saludo neutro para cualquier usuario
     if req_type == "LaunchRequest":
-        texto_respuesta = "¡Hola Joshua! Soy Astrid. Dime, ¿en qué te puedo ayudar?"
+        texto_respuesta = "¡Hola! Soy Astrid, tu asistente de inteligencia artificial. ¿En qué te puedo ayudar hoy?"
 
     elif req_type == "IntentRequest":
-        # Extraer la frase del slot "query" si existe
         slots = data.get("request", {}).get("intent", {}).get("slots", {})
         user_input = ""
         
@@ -37,8 +46,11 @@ async def alexa_skill(request: Request):
             user_input = "Hola, preséntate brevemente."
 
         try:
-            response = model.generate_content(
-                f"Responde de forma concisa y natural para ser leída por voz: {user_input}"
+            # Modelo gemini-3.6-flash probado en tu entorno
+            response = client.models.generate_content(
+                model="gemini-3.6-flash",
+                contents=user_input,
+                config=configuracion
             )
             texto_respuesta = response.text
         except Exception as e:
