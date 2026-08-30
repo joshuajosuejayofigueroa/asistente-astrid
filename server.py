@@ -5,18 +5,18 @@ from google.genai import types
 
 app = FastAPI()
 
+# Inicializar cliente con la API Key configurada en Render
 api_key = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
-# Configuración optimizada para velocidad y brevedad estricta
+# Configuración de personalidad original de Astrid
 configuracion = types.GenerateContentConfig(
     system_instruction=(
-        "Tu nombre es Astrid. Eres una asistente de IA concisa, directa y servicial. "
-        "REGLA ESTRICTA: Responde SIEMPRE en un máximo de 2 a 3 oraciones cortas. "
-        "Ve directo al grano sin introducciones ni despedidas para que la respuesta sea instantánea."
+        "Tu nombre es Astrid. Eres un sistema de inteligencia artificial avanzado, "
+        "diseñado para ser un asistente personal altamente eficiente, directo, sabio "
+        "y servicial. Mantén tus respuestas claras, concisas, naturales y listas para ser leídas por voz."
     ),
     temperature=0.7,
-    max_output_tokens=150,  # Limite físico para evitar demoras
 )
 
 @app.get("/")
@@ -28,10 +28,12 @@ async def alexa_skill(request: Request):
     data = await request.json()
     req_type = data.get("request", {}).get("type", "")
 
+    # Saludo inicial al abrir la skill
     if req_type == "LaunchRequest":
         texto_respuesta = "¡Hola! Soy Astrid. ¿En qué te puedo ayudar hoy?"
 
     elif req_type == "IntentRequest":
+        # Extraer el texto de la variable/slot capturada por Alexa
         slots = data.get("request", {}).get("intent", {}).get("slots", {})
         user_input = ""
         
@@ -40,18 +42,20 @@ async def alexa_skill(request: Request):
                 user_input = slot["value"]
                 break
 
+        # Si por alguna razón la entrada llega vacía, pide aclaración en lugar de inventar
         if not user_input:
-            user_input = "Preséntate en una sola oración."
-
-        try:
-            response = client.models.generate_content(
-                model="gemini-3.6-flash",
-                contents=user_input,
-                config=configuracion
-            )
-            texto_respuesta = response.text
-        except Exception:
-            texto_respuesta = "Lo siento, la consulta tomó demasiado tiempo. Inténtalo de nuevo."
+            texto_respuesta = "No logré escucharte bien, ¿podrías repetirlo?"
+        else:
+            try:
+                # Consulta directa a Gemini 3.6 Flash
+                response = client.models.generate_content(
+                    model="gemini-3.6-flash",
+                    contents=user_input,
+                    config=configuracion
+                )
+                texto_respuesta = response.text
+            except Exception as e:
+                texto_respuesta = f"Error al procesar la solicitud: {str(e)}"
 
     else:
         texto_respuesta = "Hasta luego."
